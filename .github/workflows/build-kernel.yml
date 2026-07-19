@@ -37,7 +37,7 @@ jobs:
         echo "REMOVE_UNUSED_PACKAGES=$(grep -w "REMOVE_UNUSED_PACKAGES" $CONFIG_ENV | head -n 1 | cut -d "=" -f 2)" >> $GITHUB_ENV
 
     - name: Remove unused packages
-      if: env.REMOVE_UNUSED_PACKAGES == 'true'
+      if: env.REMOVE_UNUSED_PACKAGES == true
       uses: jlumbroso/free-disk-space@main
       with:
         tool-cache: true
@@ -67,7 +67,7 @@ jobs:
         git clone --depth=1 ${{ env.KERNEL_SOURCE }} -b ${{ env.KERNEL_SOURCE_BRANCH }} android-kernel
 
     - name: Setup SukiSU Ultra
-      if: env.ENABLE_KERNELSU == 'true'
+      if: env.ENABLE_KERNELSU == true
       run: |
         cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
         git clone --depth=1 ${{ env.KERNELSU_SOURCE }} -b ${{ env.KERNELSU_BRANCH }} KernelSU
@@ -76,16 +76,13 @@ jobs:
     - name: Configure kernel
       run: |
         cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
-        # 关闭 LTO (4.19必须)
         if [ "${{ env.DISABLE_LTO }}" = "true" ]; then
           sed -i 's/CONFIG_LTO=y/CONFIG_LTO=n/g' arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }} || true
           echo "CONFIG_LTO_NONE=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
         fi
-        # 关闭 CC_WERROR (4.19必须)
         if [ "${{ env.DISABLE_CC_WERROR }}" = "true" ]; then
           echo "CONFIG_CC_WERROR=n" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
         fi
-        # SUSFS 最强隐藏
         echo "CONFIG_KSU=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
         echo "CONFIG_KSU_SUSFS=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
         echo "CONFIG_KSU_SUSFS_HIDE_MOUNTS=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
@@ -93,18 +90,14 @@ jobs:
         echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
         echo "CONFIG_KSU_SUSFS_SUS_SU=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
         echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
-        # 非 GKI 必须
         echo "CONFIG_KALLSYMS=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
         echo "CONFIG_KALLSYMS_ALL=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
-        # 关闭调试
         echo "CONFIG_DEBUG_INFO=n" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
-        # 强制生成 Image.gz
         echo "CONFIG_KERNEL_GZIP=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
-        # 跳过 scripts 检测，直接生成配置
         yes "" | make ARCH=${{ env.ARCH }} oldconfig
 
     - name: Setup ccache
-      if: env.ENABLE_CCACHE == 'true'
+      if: env.ENABLE_CCACHE == true
       uses: hendrikmuhs/ccache-action@v1.2
       with:
         key: build-kernel-${{ env.DEVICE }}${{ env.UPLOADNAME }}
@@ -117,7 +110,6 @@ jobs:
         export KBUILD_BUILD_USER=$(echo ${{ github.actor }} | tr A-Z a-z)
         export CROSS_COMPILE=aarch64-linux-gnu-
         export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
-        # 只编译最低限度的 scripts
         make ARCH=${{ env.ARCH }} scripts_basic CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-
         if [ "${{ env.ENABLE_CCACHE }}" = "true" ]; then
           make -j$(nproc --all) ARCH=${{ env.ARCH }} CC="ccache gcc" Image.gz CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-
@@ -139,7 +131,7 @@ jobs:
         fi
 
     - name: Package AnyKernel3
-      if: env.CHECK_FILE_IS_OK == 'true'
+      if: env.CHECK_FILE_IS_OK == true
       run: |
         cd $GITHUB_WORKSPACE/kernel_workspace
         git clone --depth=1 https://github.com/osm0sis/AnyKernel3
@@ -158,106 +150,7 @@ jobs:
         cd AnyKernel3 && zip -r ../AnyKernel3-SukiSU-Ultra.zip *
 
     - name: Upload AnyKernel3
-      if: env.CHECK_FILE_IS_OK == 'true'
-      uses: actions/upload-artifact@v4
-      with:
-        name: AnyKernel3-SukiSU-Ultra-${{ env.DEVICE }}-${{ env.BUILD_TIME }}
-        path: kernel_workspace/AnyKernel3-SukiSU-Ultra.zip      run: |
-        cd $GITHUB_WORKSPACE/kernel_workspace
-        git clone --depth=1 ${{ env.KERNEL_SOURCE }} -b ${{ env.KERNEL_SOURCE_BRANCH }} android-kernel
-
-    - name: Setup SukiSU Ultra
-      if: env.ENABLE_KERNELSU == 'true'
-      run: |
-        cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
-        git clone --depth=1 ${{ env.KERNELSU_SOURCE }} -b ${{ env.KERNELSU_BRANCH }} KernelSU
-        echo "UPLOADNAME=-SukiSU" >> $GITHUB_ENV
-
-    - name: Configure kernel
-      run: |
-        cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
-        # 关闭 LTO (4.19必须)
-        if [ "${{ env.DISABLE_LTO }}" = "true" ]; then
-          sed -i 's/CONFIG_LTO=y/CONFIG_LTO=n/g' arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }} || true
-          echo "CONFIG_LTO_NONE=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
-        fi
-        # 关闭 CC_WERROR (4.19必须)
-        if [ "${{ env.DISABLE_CC_WERROR }}" = "true" ]; then
-          echo "CONFIG_CC_WERROR=n" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
-        fi
-        # SUSFS 最强隐藏
-        echo "CONFIG_KSU=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
-        echo "CONFIG_KSU_SUSFS=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
-        echo "CONFIG_KSU_SUSFS_HIDE_MOUNTS=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
-        echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
-        echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
-        echo "CONFIG_KSU_SUSFS_SUS_SU=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
-        echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
-        # 非 GKI 必须
-        echo "CONFIG_KALLSYMS=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
-        echo "CONFIG_KALLSYMS_ALL=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
-        # 关闭调试
-        echo "CONFIG_DEBUG_INFO=n" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
-        # 强制生成 Image.gz
-        echo "CONFIG_KERNEL_GZIP=y" >> arch/${{ env.ARCH }}/configs/${{ env.KERNEL_CONFIG }}
-        # 重新生成配置
-        make ARCH=${{ env.ARCH }} olddefconfig
-
-    - name: Setup ccache
-      if: env.ENABLE_CCACHE == 'true'
-      uses: hendrikmuhs/ccache-action@v1.2
-      with:
-        key: build-kernel-${{ env.DEVICE }}${{ env.UPLOADNAME }}
-        max-size: 2G
-
-    - name: Build kernel
-      run: |
-        cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
-        export KBUILD_BUILD_HOST=Github-Action
-        export KBUILD_BUILD_USER=$(echo ${{ github.actor }} | tr A-Z a-z)
-        export CROSS_COMPILE=aarch64-linux-gnu-
-        export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
-        make ARCH=${{ env.ARCH }} ${{ env.KERNEL_CONFIG }}
-        if [ "${{ env.ENABLE_CCACHE }}" = "true" ]; then
-          make -j$(nproc --all) ARCH=${{ env.ARCH }} CC="ccache gcc" Image.gz CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-
-        else
-          make -j$(nproc --all) ARCH=${{ env.ARCH }} CC=gcc Image.gz CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-
-        fi
-
-    - name: Check kernel output
-      run: |
-        cd $GITHUB_WORKSPACE/kernel_workspace
-        if [ -f android-kernel/arch/${{ env.ARCH }}/boot/${{ env.KERNEL_IMAGE_NAME }} ]; then
-          echo "CHECK_FILE_IS_OK=true" >> $GITHUB_ENV
-        elif [ -f android-kernel/out/arch/${{ env.ARCH }}/boot/${{ env.KERNEL_IMAGE_NAME }} ]; then
-          echo "CHECK_FILE_IS_OK=true" >> $GITHUB_ENV
-        else
-          echo "Kernel output file not found!"
-          find android-kernel -name "*Image*" -type f 2>/dev/null
-          exit 1
-        fi
-
-    - name: Package AnyKernel3
-      if: env.CHECK_FILE_IS_OK == 'true'
-      run: |
-        cd $GITHUB_WORKSPACE/kernel_workspace
-        git clone --depth=1 https://github.com/osm0sis/AnyKernel3
-        IMAGE_PATH=$(find android-kernel -name "${{ env.KERNEL_IMAGE_NAME }}" -type f 2>/dev/null | head -1)
-        if [ -z "$IMAGE_PATH" ]; then
-          IMAGE_PATH=$(find android-kernel -name "Image" -type f 2>/dev/null | head -1)
-        fi
-        if [ -z "$IMAGE_PATH" ]; then
-          echo "Image not found!"
-          exit 1
-        fi
-        cp "$IMAGE_PATH" AnyKernel3/
-        sed -i 's/do.devicecheck=1/do.devicecheck=0/g' AnyKernel3/anykernel.sh
-        sed -i 's!block=/dev/block/platform/omap/omap_hsmmc.0/by-name/boot;!block=auto;!g' AnyKernel3/anykernel.sh
-        sed -i 's/is_slot_device=0;/is_slot_device=auto;/g' AnyKernel3/anykernel.sh
-        cd AnyKernel3 && zip -r ../AnyKernel3-SukiSU-Ultra.zip *
-
-    - name: Upload AnyKernel3
-      if: env.CHECK_FILE_IS_OK == 'true'
+      if: env.CHECK_FILE_IS_OK == true
       uses: actions/upload-artifact@v4
       with:
         name: AnyKernel3-SukiSU-Ultra-${{ env.DEVICE }}-${{ env.BUILD_TIME }}
