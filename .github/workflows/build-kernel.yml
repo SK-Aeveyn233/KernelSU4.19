@@ -58,7 +58,7 @@ jobs:
         echo "BUILD_TIME=$(TZ=Asia/Shanghai date "+%Y%m%d-%H%M")" >> $GITHUB_ENV
         echo "DEVICE=$(echo ${{ env.KERNEL_CONFIG }} | sed 's!vendor/!!;s/_defconfig//;s/_user//;s/-perf//')" >> $GITHUB_ENV
         sudo apt update
-        sudo apt install -y git ccache automake flex lzop bison gperf build-essential zip curl zlib1g-dev libxml2-utils bzip2 libbz2-dev libbz2-1.0 libghc-bzlib-dev squashfs-tools pngcrush schedtool dpkg-dev liblz4-tool make optipng maven libssl-dev pwgen libswitch-perl policycoreutils minicom libxml-sax-base-perl libxml-simple-perl bc libc6-dev-i386 lib32ncurses5-dev libx11-dev lib32z-dev libgl1-mesa-dev xsltproc unzip device-tree-compiler python2 python3 clang-14 lld-14 gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi gcc-12-multilib g++-12-multilib
+        sudo apt install -y git ccache automake flex lzop bison gperf build-essential zip curl zlib1g-dev libxml2-utils bzip2 libbz2-dev libbz2-1.0 libghc-bzlib-dev squashfs-tools pngcrush schedtool dpkg-dev liblz4-tool make optipng maven libssl-dev pwgen libswitch-perl policycoreutils minicom libxml-sax-base-perl libxml-simple-perl bc libc6-dev-i386 lib32ncurses5-dev libx11-dev lib32z-dev libgl1-mesa-dev xsltproc unzip device-tree-compiler python2 python3 clang-14 lld-14 gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi
         mkdir -p $GITHUB_WORKSPACE/kernel_workspace
 
     - name: Download kernel source
@@ -119,9 +119,6 @@ jobs:
         export CROSS_COMPILE=aarch64-linux-gnu-
         export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
         make ARCH=${{ env.ARCH }} ${{ env.KERNEL_CONFIG }}
-        # 先用 GCC 编译 scripts
-        make ARCH=${{ env.ARCH }} scripts CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-
-        # 再用 Clang 编译内核
         if [ "${{ env.ENABLE_CCACHE }}" = "true" ]; then
           make -j$(nproc --all) ARCH=${{ env.ARCH }} CC="ccache clang" Image.gz CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi-
         else
